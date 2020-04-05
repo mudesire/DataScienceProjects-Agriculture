@@ -1,0 +1,129 @@
+
+# create a folder dans ton bureau as "C:/Users/../Solange/data*
+# et copie les fichiers exread_excel(source_path)cel la bas.
+
+# Cette commande te montre le dossier ou te te trouve
+print(getwd())
+
+# LIBRARY
+library('readxl')
+
+
+# LECTURE
+# modifier source_path pour correspondre au fichier choisi
+
+source_path="C:/Users/7/Desktop/Solange/data/data2yieldrelatedtrait/2017-2018 yield  Marchouch related trait.xlsx"
+
+X2017_2018_yield_Marchouch_related_trait <- 
+
+#View(X2017_2018_yield_Marchouch_related_trait) # visualisation des donnees
+
+#Traitement
+mydata=X2017_2018_yield_Marchouch_related_trait
+desc = mydata[c(1,2:6)] # Selection du colonne 2 a 6
+newdata = mydata[c(1,7:15)] # Selection du colonne 7 a 15, les donnees traites
+
+newdata = newdata[c(-1)] # Selection du colonne 2 a 6
+newdata =  data.frame(newdata)
+sum(is.na(newdata)) #  There is a missing value check please
+newdata=na.omit(newdata)
+
+# pearson
+library('ggcorrplot')
+
+newdatacor= round(cor(newdata,method = c("pearson")),2)
+Pg=ggcorrplot(newdatacor, hc.order = TRUE, type = "lower",
+              lab = TRUE)
+Pg
+newdatacor.png
+
+saveFigure(obj,fileName)
+
+
+
+
+# Save graph
+png(file=paste(getwd(), "Pgheatmap.png"),width=600, height=350)
+heatmap(x = newdatacor, symm = TRUE, col = cm.colors(256))
+dev.off()
+
+# PCA
+newdatapca = prcomp(newdata, center = TRUE, scale = TRUE)
+summary(newdatapca)
+
+
+library('ggplot2')
+library('factoextra')
+
+p=fviz_pca_ind(newdatapca, col.ind="contrib", geom = "point")
+
+p1=p +  scale_color_gradient2(low="white", mid="blue",
+                        high="red", midpoint=0.8)
+p1
+
+png(file=paste(getwd(), "newdatapcap1.png"),width=600, height=350)
+print(p1)
+dev.off()
+
+
+p2=p+scale_color_gradient2(low="white", mid="blue",
+                        high="red", midpoint=0.8)+ theme_minimal()
+p2
+
+png(file=paste(getwd(), "newdatapcap2.png"),width=600, height=350)
+print(p2)
+dev.off()
+
+
+p3=fviz_pca_ind(newdatapca, label="none", habillage=newdata$Row,
+                       addEllipses=TRUE, ellipse.level=0.85)+ scale_color_brewer(palette="Dark2") +
+  theme_minimal()
+p3
+png(file=paste(getwd(), "newdatapcap3.png"),width=600, height=350)
+print(p3)
+dev.off()
+
+
+# Default plot
+pv=fviz_pca_biplot(newdatapca, geom = "point", col.ind="contrib") +
+ scale_color_gradient2(low="white", mid="blue",high="red") +
+  theme_minimal()
+pv
+
+png(file=paste(getwd(), "newdatapcapv.png"),width=600, height=350)
+print(pv)
+dev.off()
+
+
+# variance
+pr_var = ( newdatapca[["sdev"]] )^2 
+
+# % of variance
+prop_varex = pr_var / sum( pr_var )
+
+# Plot
+plot( prop_varex, xlab = "Principal Component", 
+      ylab = "Proportion of Variance Explained", type = "b" )
+
+
+library(corrplot)
+
+corrplot(newdatacor, method = "circle",type = "lower")
+
+col <- colorRampPalette(c("#7F0000", "red", "#FF7F00", "yellow", "white",
+                           "cyan", "#007FFF", "blue", "#00007F"))
+
+## using these color spectra
+
+corrplot(newdatacor, method = "color", col = col(100),
+         type = "upper", order = "hclust", number.cex = .7, addrect = 2,
+         addCoef.col = "black", # Add coefficient of correlation
+         tl.col = "black", tl.srt = 30, # Text label color and rotation
+         # hide correlation coefficient on the principal diagonal
+         diag = FALSE)
+
+corrplot.mixed(newdatacor, upper = "ellipse", lower = "number",
+               tl.pos = "lt", tl.col = "black", tl.offset=1, tl.srt = 20)
+
+#reference
+#http://www.sthda.com/english/wiki/fviz-pca-quick-principal-component-analysis-data-visualization-r-software-and-data-mining

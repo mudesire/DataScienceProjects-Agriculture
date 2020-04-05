@@ -1,0 +1,176 @@
+rm(list = ls(all.names = TRUE)) 
+######## Used library//co
+library('readxl')
+library('ggcorrplot')
+library('ggplot2')
+library('factoextra')
+library('corrplot')
+library(pheatmap)
+library("RColorBrewer")
+library("gplots")
+
+#######
+url='https://www.dropbox.com/scl/fi/se1y67knn0drvk4d054lm/NEW-ALL-DATA.xlsx?dl=1&rlkey=yv4n67ei0ztejc55qj11x7qxa'
+
+# 
+# Set data source to process
+data="NEW ALL DATA.xlsx"
+#download.file(url, data)
+# 
+# Select column 7:28
+dataset <- read_excel(data)
+newdata <- dataset[c(1,7:NCOL(dataset))] 
+newdata <- data.frame(newdata[c(-1)])
+
+# 
+#Ignore rows with missing values
+
+sum(is.na(newdata)) #  There is a missing value check please
+newdata=na.omit(newdata)
+newdata=scale(newdata) #scale data 
+# 
+# Compute correlation
+newdatacor= cor(newdata,method = c("pearson"))
+newdata.cor=newdatacor #enregistre resultat de correlation dans newdata
+
+newdatacor=round(newdatacor,2)
+title="Pearson correlation"
+
+pg=ggcorrplot(newdatacor,hc.order = TRUE, type = "lower", legend.title =title )
+pg=pg+theme(axis.title=element_text(size=1))
+print(pg)
+ggsave(file="newdatacor.png")
+ggsave(file="newdatacor.pdf")
+dev.off()
+#
+# Save graph
+ph=pheatmap(newdatacor)
+# creates a 5 x 5 inch image
+png("newdatapcapheatmap.png",    # create PNG for the heat map        
+    width = 5*300+50,        # 5 x 300 pixels
+    height = 5*300,
+    res = 300,            # 300 pixels per inch
+    pointsize = 4)        # smaller font size
+print(ph)
+dev.off()
+pdf(file ="newdatapcapheatmap.pdf")        # smaller font size
+print(ph)
+dev.off()
+
+#reformulate
+#https://davetang.org/muse/2018/05/15/making-a-heatmap-in-r-with-the-pheatmap-package/)
+
+
+#
+#Customizing and plotting the heat map
+# creates a own color palette from red to green
+my_palette <- colorRampPalette(c("red", "yellow", "green"))(n = 299)
+
+# (optional) defines the color breaks manually for a "skewed" color transition
+col_breaks = c(seq(-1,0,length=100),  # for red
+               seq(0.01,0.8,length=100),           # for yellow
+               seq(0.81,1,length=100))             # for green
+
+# creates a 5 x 5 inch image
+png("newdatapcapheatmap2.png",    # create PNG for the heat map        
+    width = 5*300,        # 5 x 300 pixels
+    height = 5*300,
+    res = 300,            # 300 pixels per inch
+    pointsize = 8)        # smaller font size
+heatmap.2(newdatacor,
+          #cellnote = newdatacor,  # same data set for cell labels
+          main = "Correlation", # heat map title
+          notecol="black",      # change font color of cell labels to black
+          density.info="none",  # turns off density plot inside color legend
+          trace="none",         # turns off trace lines inside the heat map
+          margins =c(12,9),     # widens margins around plot
+          col=my_palette,       # use on color palette defined earlier
+          breaks=col_breaks,    # enable color transition at specified limits
+          dendrogram="row",     # only draw a row dendrogram
+          Colv="NA")            # turn off column clustering
+
+dev.off()               # close the PNG device
+
+# ++++++++++++++++++++++++++++
+# flattenCorrMatrix
+# ++++++++++++++++++++++++++++
+# cormat : matrix of the correlation coefficients
+# pmat : matrix of the correlation p-values
+flattenCorrMatrix <- function(cormat, pmat) {
+  ut <- upper.tri(cormat)
+  data.frame(
+    row = rownames(cormat)[row(cormat)[ut]],
+    column = rownames(cormat)[col(cormat)[ut]],
+    cor  =(cormat)[ut],
+    p = pmat[ut]
+  )
+}
+
+library(Hmisc)
+res2<-rcorr(as.matrix(newdata))
+dto=flattenCorrMatrix(round(res2$r,2), round(res2$P,2))
+
+write.csv(data.frame(dto) ,'newdatacorrelation_Pvalue.csv')
+# Insignificant correlation are crossed
+corrplot(res2$r, type="upper", order="hclust", 
+         p.mat = res2$P, sig.level = 0.01, insig = "blank")
+
+library("PerformanceAnalytics")
+chart.Correlation(as.matrix(newdata), histogram=FALSE, pch=19)
+
+#my_palette(20)
+my_cols <-colorRampPalette(c("red", "green","blue"))(n =5)
+pairs(as.matrix(newdata), pch = 19,  cex = 0.5,
+      col = my_cols[newdata$NB.DISEASE],
+      method = "pearson", # correlation method
+      hist.col = "#00AFBB",
+      density = TRUE,  # show density plots
+      ellipses = TRUE, # show correlation ellipses
+      lower.panel=NULL)
+
+library("ggpubr")
+# IS covariation linear
+
+ggscatter(newdata, x = "Area", y = "TGW", 
+          add = "reg.line", conf.int = TRUE, 
+          cor.coef = TRUE, cor.method = "pearson",
+          xlab = "AREA", ylab = "TGW")
+
+# the 2 variables (x, y) follow a normal distribution
+# Shapiro-Wilk normality test for mpg
+shapiro.test(newdata$Area) # => p = different
+# Shapiro-Wilk normality test for wt
+shapiro.test(newdata$TGW) # => p =  p-values are greater than the significance level 0.05 implying that the distribution of the data are not significantly different from normal distribution.
+
+#Visual inspection of the data normality using Q-Q plots
+ggqqplot(newdata$Area, ylab = "Area")
+# wt
+ggqqplot(newdata$TGW, ylab = "TGW")
+
+res <- cor.test(newdata$Area, newdata$TGW, 
+                method = "pearson")
+res
+
+#Pearson's product-moment correlation
+
+#data:  newdata$Area and newdata$TGW
+#t = 28.2, df = 552, p-value < 2.2e-16 
+#alternative hypothesis: true correlation is not equal to 0
+#95 percent confidence interval:
+# 0.7318298 0.8003735
+#sample estimates:
+#      cor 0.7682951 
+
+#t is the t-test statistic value,
+#df is the degrees of freedom,
+#p-value is the significance level of the t-test (p-value = 1^{-16}).
+#conf.int is the confidence interval of the correlation coefficient at 95% (conf.int = [x,y]);
+#sample estimates is the correlation coefficient (Cor.coeff = -0.87).
+
+#Interpret correlation coefficient
+#Correlation coefficient is comprised between -1 and 1:
+  
+  
+#  -1 indicates a strong negative correlation : this means that every time x increases, y decreases (left panel figure)
+#0 means that there is no association between the two variables (x and y) (middle panel figure)
+#1 indicates a strong positive correlation : this means that y increases with x (right panel figure)
